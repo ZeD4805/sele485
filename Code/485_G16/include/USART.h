@@ -2,7 +2,7 @@
 #define USART_BAUD 9600UL
 #endif */
 
-void initUSART(uint32_t baud);
+void initUSART(uint32_t baud, uint8_t isTX);
 void initUSART_RX_ISR(uint32_t baud);
 
 void transmitByte(uint8_t data);

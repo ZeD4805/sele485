@@ -5,16 +5,14 @@
 #define UBRRH_VAL   ((F_CPU / (16 * baud)) - 1) >> 8
 #define UBRRL_VAL   ((F_CPU / (16 * baud)) - 1) & 0xff
 
-void initUSART(uint32_t baud) {
+void initUSART(uint32_t baud, uint8_t isTX) {
     UBRR0H = UBRRH_VAL;
     UBRR0L = UBRRL_VAL;
-#if USE_2X
-    UCSR0A |= (1 << U2X0);
-#else
+
     UCSR0A &= ~(1 << U2X0);
-#endif
-    UCSR0B = (1 << TXEN0) | (1 << RXEN0);
-    UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
+
+    UCSR0B = (isTX << TXEN0) | (!isTX << RXEN0);
+    UCSR0C = (1 << UCSZ01) | (1 << UCSZ00) | (1 << UPM00) | (1 << UPM01);
 }
 
 void initUSART_RX_ISR(uint32_t baud) {

@@ -14,17 +14,45 @@ void setup(){
     DDRC |= (1 << PC0);
     DDRD |= (1 << PD1);
  
-    address = PINB & (1<<PIN3 | 1 << PIN2 | 1 << PIN1 | 1 << PIN0);
+    address = PINB & (1 << PIN3 | 1 << PIN2 | 1 << PIN1 | 1 << PIN0);
     
     //PORTC |= !address << PC0; 
 
     initUSART(9600, !address);
-
-    
 }
 
 void loop(){
-    
+    if(!address){
+        PORTC |= !address << PC0; 
+        transmitByte(PINC & (1 << PC2 | 1 << PC1));
+        PORTC &= ~(!address << PC0); 
+    }   
+    else
+    {
+        uint8_t received = receiveByte();
+        switch (address)
+        {
+        case 1:
+            if(received & (1<<PC1)){
+                PORTB |= (1<<PB5);
+            }
+            else
+            {
+                PORTB &= ~(1<<PB5);
+            }
+            break;
+        case 2:
+            if(received & (1<<PC2)){
+                PORTB |= (1<<PB5);
+            }
+            else
+            {
+                PORTB &= ~(1<<PB5);
+            }
+        default:
+            break;
+        }
+    }
 }
 
 void main(){

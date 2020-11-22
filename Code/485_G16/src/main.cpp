@@ -4,25 +4,24 @@
 #define UBRRH_VAL   ((F_CPU / (16 * baud)) - 1) >> 8
 #define UBRRL_VAL   ((F_CPU / (16 * baud)) - 1) & 0xff
 
-uint8_t address;
+uint8_t volatile address;
 
 ISR(USART_RX_vect){
     uint16_t received = receiveData();
-    if(received & 8){
-        if(received == address)
+    if(received & 1){
+        if((received >> 1) == address)
             UCSR0A &= ~(1 << MPCM0); //await data frame by disabling Multi-processor mode
         
     }
     else
     {
-        if(receiveData)
+        if(received >> 1)
             PORTB &= ~(1<<PB5);
         else
             PORTB |= (1<<PB5);
 
         UCSR0A |= (1 << MPCM0); //reactivate Multi-processor mode
     }
-    
 }
 
 void initUSART_ISR(uint32_t baud, uint8_t isTX) {
@@ -31,7 +30,6 @@ void initUSART_ISR(uint32_t baud, uint8_t isTX) {
 
     UCSR0B = (isTX << TXEN0) | (!isTX << RXEN0) | (!isTX << RXCIE0) | (1 << UPM00) | (1 << UPM01);//interrupt enable and parity
     UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
-
 } 
 
 void transmitData(uint16_t data) { 
@@ -43,7 +41,6 @@ void transmitData(uint16_t data) {
 }
 
 uint16_t receiveData(void) {
-    loop_until_bit_is_set(UCSR0A, RXC0);
     uint8_t status, resh, resl;
 
     status = UCSR0A;
@@ -84,14 +81,14 @@ void masterLoop(){
         if(buttonStatus != prevButtonStatus){
             if((buttonStatus&1) != (prevButtonStatus&1)){ //address 1
                 PORTC |= !address << PC0; 
-                transmitData((buttonStatus & 1) << 1 + 1);
-                transmitData((buttonStatus & 1) << 1 + 0);
+                transmitData((1 << 1) + 1);                 //address
+                transmitData((buttonStatus & 1) << 1 + 0);  //data frame
                 PORTC &= ~(!address << PC0); 
             }
             else if((buttonStatus&2) != (prevButtonStatus&2)){ //address 2
                 PORTC |= !address << PC0; 
-                transmitData((buttonStatus & 2) << 1 + 1);
-                transmitData((buttonStatus & 2) << 0 + 0);
+                transmitData((2 << 1) + 1);                 //address frame
+                transmitData((buttonStatus & 2) << 0 + 0);  //data frame
                 PORTC &= ~(!address << PC0); 
             }
         } 
@@ -107,5 +104,4 @@ void main(){
     {
         slaveLoop();
     }
-    
 }

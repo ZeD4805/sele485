@@ -84,14 +84,14 @@ void masterLoop(){
         if(buttonStatus != prevButtonStatus){
             if((buttonStatus&1) != (prevButtonStatus&1)){ //address 1
                 PORTC |= !address << PC0; 
-                transmitData(8 + (buttonStatus & 1));
-                transmitData(buttonStatus & 1);
+                transmitData((buttonStatus & 1) << 1 + 1);
+                transmitData((buttonStatus & 1) << 1 + 0);
                 PORTC &= ~(!address << PC0); 
             }
             else if((buttonStatus&2) != (prevButtonStatus&2)){ //address 2
                 PORTC |= !address << PC0; 
-                transmitData(8 + (buttonStatus&2));
-                transmitData(buttonStatus & 2);
+                transmitData((buttonStatus & 2) << 1 + 1);
+                transmitData((buttonStatus & 2) << 0 + 0);
                 PORTC &= ~(!address << PC0); 
             }
         } 

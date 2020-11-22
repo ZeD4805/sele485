@@ -4,7 +4,7 @@
 #define UBRRH_VAL   ((F_CPU / (16 * baud)) - 1) >> 8
 #define UBRRL_VAL   ((F_CPU / (16 * baud)) - 1) & 0xff
 
-uint8_t volatile address;
+volatile uint8_t address;
 
 ISR(USART_RX_vect){
     uint16_t received = receiveData();

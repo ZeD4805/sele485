@@ -78,7 +78,6 @@ void slaveLoop(){
 
 void masterLoop(){
     uint8_t buttonStatus, prevButtonStatus = 0;
-    PINC & (1 << PC2 | 1 << PC1);
 
     while(1){
         buttonStatus = PINC & (1 << PC2 | 1 << PC1);

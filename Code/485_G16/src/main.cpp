@@ -1,107 +1,123 @@
 #include <avr/io.h>
-#include <avr/interrupt.h>
 
 #define UBRRH_VAL   ((F_CPU / (16 * baud)) - 1) >> 8
 #define UBRRL_VAL   ((F_CPU / (16 * baud)) - 1) & 0xff
 
+#define ADDRESSFRAME 1
+#define DATAFRAME 0
+#define MASTERADDRESS 0
+
 volatile uint8_t address;
+volatile uint8_t rxData;
 
-ISR(USART_RX_vect){
-    uint16_t received = receiveData();
-    if(received & 1){
-        if((received >> 1) == address)
-            UCSR0A &= ~(1 << MPCM0); //await data frame by disabling Multi-processor mode
-        
-    }
+void transmit(uint8_t isAddress, uint8_t data){
+    while (!(UCSR0A & (1 << UDRE0)));
+
+    if(isAddress)
+        UCSR0B |= (1 << TXB80);
     else
-    {
-        if(received >> 1)
-            PORTB &= ~(1<<PB5);
-        else
-            PORTB |= (1<<PB5);
-
-        UCSR0A |= (1 << MPCM0); //reactivate Multi-processor mode
-    }
+        UCSR0B &= ~(1 << TXB80);
+    UDR0 = data;
 }
 
-void initUSART_ISR(uint32_t baud, uint8_t isTX) {
+uint8_t receive(){
+    while (!(UCSR0A & (1<<RXC0)));
+    
+    uint8_t resh, resl;
+
+    resh = UCSR0B;
+    resh = (resh >> RXB80) & 0x01;
+
+    rxData = UDR0;
+    return resh;
+}
+
+void initUSART(uint32_t baud, uint8_t isTX){
+
     UBRR0H = UBRRH_VAL;
     UBRR0L = UBRRL_VAL;
 
-    UCSR0B = (isTX << TXEN0) | (!isTX << RXEN0) | (!isTX << RXCIE0) | (1 << UPM00) | (1 << UPM01);//interrupt enable and parity
-    UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
-} 
+    UCSR0B |= (1 << UCSZ02);//| (1 << UPM00) | (1 << UPM01); //parity
+    UCSR0C |= (1 << UCSZ01) | (1 << UCSZ00); //set 9 bit data, and 1 stop bit
 
-void transmitData(uint16_t data) { 
-    loop_until_bit_is_set(UCSR0A, UDRE0);
-    UCSR0B &= ~(1<<TXB80);
-    if (data & 8)
-        UCSR0B |= (1<<TXB80);
-    UDR0 = (uint8_t) data;
-}
-
-uint16_t receiveData(void) {
-    uint8_t status, resh, resl;
-
-    status = UCSR0A;
-    resh = UCSR0B;
-    resl = UDR0;
-    if (status & (1<<FE0)|(1<<DOR0)|(1<<UPE0))
-    return -1;
-
-    resh = (resh >> 1) & 0x01;
-    return ((resh << 8) | resl);
-}
-
-void setup(){
-    PORTB |= (1 << PB3 | 1 << PB2 | 1 << PB1 | 1 << PB0);
-    PORTC |= (1 << PC2 | 1 << PC1);
-
-    DDRB |= (1 << PB5);
-    DDRC |= (1 << PC0);
-    DDRD |= (1 << PD1);
- 
-    address = PINB & (1 << PIN3 | 1 << PIN2 | 1 << PIN1 | 1 << PIN0);
-
-    initUSART_ISR(9600, !address);
-
-    sei();
-}
-
-void slaveLoop(){
-
-    while(1);
-}
-
-void masterLoop(){
-    uint8_t buttonStatus, prevButtonStatus = 0;
-
-    while(1){
-        buttonStatus = PINC & (1 << PC2 | 1 << PC1);
-        if(buttonStatus != prevButtonStatus){
-            if((buttonStatus&1) != (prevButtonStatus&1)){ //address 1
-                PORTC |= !address << PC0; 
-                transmitData((1 << 1) + 1);                 //address
-                transmitData((buttonStatus & 1) << 1 + 0);  //data frame
-                PORTC &= ~(!address << PC0); 
-            }
-            else if((buttonStatus&2) != (prevButtonStatus&2)){ //address 2
-                PORTC |= !address << PC0; 
-                transmitData((2 << 1) + 1);                 //address frame
-                transmitData((buttonStatus & 2) << 0 + 0);  //data frame
-                PORTC &= ~(!address << PC0); 
-            }
-        } 
+    if(isTX)
+        UCSR0B |= (1 << TXEN0);
+    else{
+        UCSR0B |= (1 << RXEN0);
+        UCSR0A = (1 << MPCM0);
     }
 }
 
-void main(){
+void setup(){
+    PORTB |= (1 << PB3 | 1 << PB2 | 1 << PB1 | 1 << PB0); //Switches
+    PORTC |= (1 << PC2 | 1 << PC1); //buttons
+
+    DDRB |= (1 << PB5); //led
+    DDRC |= (1 << PC0); //tx line
+ 
+    address = PINB & (1 << PIN3 | 1 << PIN2 | 1 << PIN1 | 1 << PIN0);
+
+    initUSART(9600, (address == MASTERADDRESS));
+}
+
+void slaveLoop(){
+    while (1)
+    {
+        uint8_t isAddress = receive();
+
+        if(isAddress){ //if addressFrame
+            if(address == rxData){
+                UCSR0A &= ~(1 << MPCM0); //wait for data frame
+            }
+            else
+            {
+                UCSR0A &= ~(1 << MPCM0); //make sure it looks for address frame
+                UCSR0A |= (1 << MPCM0);
+            }
+        }
+        else // if dataFrame
+        {
+            if(rxData == 0){
+                PORTB |= (1<<PB5);
+            }
+            else{
+                PORTB &= ~(1<<PB5);
+            }
+        }
+    }
+}
+
+void masterLoop(){
+    uint8_t prevButton1 = 1, prevButton2 = 1;
+    uint8_t button1, button2;
+
+    while (1)
+    {
+        button1 = (PINC & (1<<PC1)) >> PC1;
+        button2 = (PINC & (1<<PC2)) >> PC2;
+
+        if(button1 != prevButton1){
+            transmit(ADDRESSFRAME, 1);
+            transmit(DATAFRAME, button1);
+        }
+        if(button2 != prevButton2){
+            transmit(ADDRESSFRAME, 2);
+            transmit(DATAFRAME, button2);
+        }
+
+        prevButton1 = button1;
+        prevButton2 = button2;
+    }
+}
+
+int main(){
     setup();
-    if(!address){
+    if(address == MASTERADDRESS){
         masterLoop();
     }
     else
     {
         slaveLoop();
     }
+    return 0;
 }

@@ -71,8 +71,7 @@ void slaveLoop(){
             }
             else
             {
-                UCSR0A &= ~(1 << MPCM0); //make sure it looks for address frame
-                UCSR0A |= (1 << MPCM0);
+                UCSR0A |= (1 << MPCM0); //make sure it looks for address frame
             }
         }
         else // if dataFrame

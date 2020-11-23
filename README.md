@@ -1,8 +1,14 @@
-# sele485
-A USART master-slave setup through a differencial communication, the 485. Uses 9bit, 1 stop bit and odd parity and Multi-processor communication mode (MPCM). Includes a printable PCB and code.
+# Sele485
+A USART master-slave setup for the Atmega328p through a differencial communication, the LTC485. Uses 9bit, 1 stop bit and odd parity and Multi-processor communication mode (MPCM). Includes a printable PCB and code.
 
-#PCB
+# PCB
+Includes an ATmega328p, an LTC485, a crystal oscillator clock, 4 switches, 2 buttons, and some external ports as screwable wire ports. It is seen in the next schematic designed in EasyEDA.
 
+![esquema](esquema.png)
+
+The PCB that was produced from it:
+
+![placa](placa.png)
 
 # Code Implementation
 ```c
